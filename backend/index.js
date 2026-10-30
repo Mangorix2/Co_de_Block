@@ -5,6 +5,15 @@ const port = 3000
 
 const db = new sqlite3.Database("block.db");
 
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS blocks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      block TEXT NOT NULL,
+      unlocked_at_lvl INTEGER
+    )`)
+})
+
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
