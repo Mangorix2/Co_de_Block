@@ -1,6 +1,9 @@
 const sqlite3 = require('sqlite3')
 const express = require('express');
+
 const app = express()
+app.use(express.json());
+
 const port = 3000
 const db = new sqlite3.Database('block.db')
 
@@ -102,3 +105,30 @@ app.post('/codeExec', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+function createInstructions(blocks) {
+  let list = [];
+
+  blocks.forEach((block) => {
+    switch (block.type) {
+      case 'move_forward':
+        list.push(`move_forward(${block.steps})`);
+        break;
+
+      case 'turn':
+        list.push(`turn(${block.degrees})`);
+        break;
+
+      case 'repeat':
+        const times = block.times || 1;
+        const innerBlocks = block.body;
+
+        for (let i = 0; i < times; i++) {
+          const innerBlock = createInstructions(innerBlocks);
+          list = list.concat(innerBlock);
+        }
+        break;
+    }
+  })
+  return list
+}
