@@ -11,11 +11,11 @@ const initialBlocks = [
 ];
 
 const initialGrid = [
-  { lvl: 1, height: 5, width: 5 },
-  { lvl: 2, height: 8, width: 8 },
-  { lvl: 3, height: 8, width: 8 },
-  { lvl: 4, height: 10, width: 10 },
-  { lvl: 5, height: 10, width: 10 },
+  { lvl: 1, height: 5, width: 5, goal: "5x5" },
+  { lvl: 2, height: 8, width: 8, goal: "5x7" },
+  { lvl: 3, height: 8, width: 8, goal: "6x8" },
+  { lvl: 4, height: 10, width: 10, goal: "10x9" },
+  { lvl: 5, height: 10, width: 10, goal: "7x8" },
 
 ];
 
