@@ -42,9 +42,9 @@ db.serialize(() => {
     db_insert_blocks.run(block.name, block.lvl);
   }
 
-  const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width) VALUES (?, ?, ?)");
+  const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width) VALUES (?, ?, ?, ?)");
   for (const grid of initialGrid) {
-    db_insert_grid.run(grid.lvl, grid.height, grid. width);
+    db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal);
   }
   console.log("DB is ready!")
 
