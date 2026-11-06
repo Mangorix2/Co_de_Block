@@ -4,6 +4,7 @@ const app = express()
 const port = 3000
 const db = new sqlite3.Database('block.db')
 
+// DB
 const initialBlocks = [
   { name: "forward", lvl: 1 },
   { name: "backward", lvl: 1 },
@@ -20,8 +21,6 @@ const initialGrid = [
 
 ];
 
-const db = new sqlite3.Database("block.db");
-
 db.serialize(() => {
   db.run("DROP TABLE IF EXISTS blocks")
   db.run(`
@@ -35,7 +34,8 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       lvl INTEGER NOT NULL,
       height INTEGER NOT NULL,
-      width INTEGER NOT NULL
+      width INTEGER NOT NULL,
+      goal TEXT NOT NULL
     )`)
 
   const db_insert_blocks = db.prepare("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)");
@@ -43,7 +43,7 @@ db.serialize(() => {
     db_insert_blocks.run(block.name, block.lvl);
   }
 
-  const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width) VALUES (?, ?, ?, ?)");
+  const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)");
   for (const grid of initialGrid) {
     db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal);
   }
@@ -52,11 +52,12 @@ db.serialize(() => {
 })
 
 
-
+// TEST
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
-  
+
+// getblocks
 app.get('/getBlocks', (req, res) => {
   const currentLevel = Number(req.query.currentLevel);
 
@@ -75,6 +76,8 @@ app.get('/getBlocks', (req, res) => {
         res.json(rows);
       }
   );
+})
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
