@@ -78,6 +78,26 @@ app.get('/getBlocks', (req, res) => {
   );
 })
 
+// codeExec
+// body: JSON with all blocks
+//{"blocks": [
+//     {
+//      "type": "repeat",
+//      "times": 2,
+//      "body": [
+//        { "type": "move_forward", "steps": 10 },
+//        { "type": "turn", "degrees": 90 }
+//        .....
+app.post('/codeExec', (req, res) => {
+  const data = req.body;
+  console.log(data)
+  const instructions = createInstructions(data.blocks);
+
+  console.log(instructions)
+  res.status(200).json({
+    instructions: instructions
+  });
+});
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
