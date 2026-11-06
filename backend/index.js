@@ -4,6 +4,7 @@ const app = express()
 const port = 3000
 const db = new sqlite3.Database('block.db')
 
+// DB
 const initialBlocks = [
   { name: "forward", lvl: 1 },
   { name: "backward", lvl: 1 },
@@ -31,11 +32,11 @@ db.serialize(() => {
     )`)
   db.run(`
     CREATE TABLE IF NOT EXISTS grid (
-                                      id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                      lvl INTEGER NOT NULL,
-                                      height INTEGER NOT NULL,
-                                      width INTEGER NOT NULL,
-                                      goal TEXT NOT NULL
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lvl INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      width INTEGER NOT NULL,
+      goal TEXT NOT NULL
     )`)
 
   const db_insert_blocks = db.prepare("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)");
@@ -53,10 +54,13 @@ db.serialize(() => {
   console.log("DB is ready!")
 })
 
+
+// TEST
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
+// getblocks
 app.get('/getBlocks', (req, res) => {
   const currentLevel = Number(req.query.currentLevel);
 
