@@ -32,7 +32,7 @@ db.serialize(() => {
       block TEXT NOT NULL,
       unlocked_at_lvl INTEGER
     )`)
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS grid (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       lvl INTEGER NOT NULL,
@@ -60,7 +60,8 @@ app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-// getblocks
+// getblocks by lvl
+// body: currentLevel
 app.get('/getBlocks', (req, res) => {
   const currentLevel = Number(req.query.currentLevel);
 
@@ -69,15 +70,15 @@ app.get('/getBlocks', (req, res) => {
   }
 
   db.all(
-      'SELECT * FROM blocks WHERE unlocked_at_lvl <= ?',
-      [currentLevel],
-      (err, rows) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: 'Databasefailure' });
-        }
-        res.json(rows);
+    'SELECT * FROM blocks WHERE unlocked_at_lvl <= ?',
+    [currentLevel],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Databasefailure' });
       }
+      res.json(rows);
+    }
   );
 })
 
@@ -106,6 +107,9 @@ app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
 
+// Helper function for /codeExec 
+// creates a list with the commands with all the blocks
+// argument block list => see /codeExec
 function createInstructions(blocks) {
   let list = [];
 
