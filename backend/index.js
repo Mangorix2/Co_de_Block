@@ -1,6 +1,9 @@
 const sqlite3 = require('sqlite3')
 const express = require('express');
+
 const app = express()
+app.use(express.json());
+
 const port = 3000
 const db = new sqlite3.Database('block.db')
 
@@ -60,7 +63,8 @@ app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-// getblocks
+// getblocks by lvl
+// body: currentLevel
 app.get('/getBlocks', (req, res) => {
   const currentLevel = Number(req.query.currentLevel);
 
@@ -69,15 +73,15 @@ app.get('/getBlocks', (req, res) => {
   }
 
   db.all(
-      'SELECT * FROM blocks WHERE unlocked_at_lvl <= ?',
-      [currentLevel],
-      (err, rows) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: 'Databasefailure' });
-        }
-        res.json(rows);
+    'SELECT * FROM blocks WHERE unlocked_at_lvl <= ?',
+    [currentLevel],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Databasefailure' });
       }
+      res.json(rows);
+    }
   );
 });
 
@@ -88,19 +92,57 @@ app.get('/getGrid', (req, res) =>{
     res.status(400).json({error: "level konnte nicht gefunden werden"});
   }
 
-  db.all(
-      'SELECT * FROM grid WHERE lvl == ?',
-      [currentlvl],
-      (err, rows) => {
-        if (err) {
-          console.error(err);
-          return res.status(500).json({ error: 'Databasefailure' });
-        }
-        res.json(rows);
-      }
-  );
-})
+// codeExec
+// body: JSON with all blocks
+//{"blocks": [
+//     {
+//      "type": "repeat",
+//      "times": 2,
+//      "body": [
+//        { "type": "move_forward", "steps": 10 },
+//        { "type": "turn", "degrees": 90 }
+//        .....
+app.post('/codeExec', (req, res) => {
+  const data = req.body;
+  console.log(data)
+  const instructions = createInstructions(data.blocks);
+
+  console.log(instructions)
+  res.status(200).json({
+    instructions: instructions
+  });
+});
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+// Helper function for /codeExec 
+// creates a list with the commands with all the blocks
+// argument block list => see /codeExec
+function createInstructions(blocks) {
+  let list = [];
+
+  blocks.forEach((block) => {
+    switch (block.type) {
+      case 'move_forward':
+        list.push(`move_forward(${block.steps})`);
+        break;
+
+      case 'turn':
+        list.push(`turn(${block.degrees})`);
+        break;
+
+      case 'repeat':
+        const times = block.times || 1;
+        const innerBlocks = block.body;
+
+        for (let i = 0; i < times; i++) {
+          const innerBlock = createInstructions(innerBlocks);
+          list = list.concat(innerBlock);
+        }
+        break;
+    }
+  })
+  return list
+}
