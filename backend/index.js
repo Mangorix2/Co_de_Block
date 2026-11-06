@@ -17,46 +17,46 @@ const initialGrid = [
   { lvl: 3, height: 8, width: 8, goal: "6x8" },
   { lvl: 4, height: 10, width: 10, goal: "10x9" },
   { lvl: 5, height: 10, width: 10, goal: "7x8" },
-
 ];
-
-const db = new sqlite3.Database("block.db");
 
 db.serialize(() => {
   db.run("DROP TABLE IF EXISTS blocks")
+  db.run("DROP TABLE IF EXISTS grid")
+
   db.run(`
     CREATE TABLE IF NOT EXISTS blocks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      block TEXT NOT NULL,
-      unlocked_at_lvl INTEGER
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        block TEXT NOT NULL,
+                                        unlocked_at_lvl INTEGER
     )`)
-    db.run(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS grid (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      lvl INTEGER NOT NULL,
-      height INTEGER NOT NULL,
-      width INTEGER NOT NULL
+                                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                      lvl INTEGER NOT NULL,
+                                      height INTEGER NOT NULL,
+                                      width INTEGER NOT NULL,
+                                      goal TEXT NOT NULL
     )`)
 
   const db_insert_blocks = db.prepare("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)");
   for (const block of initialBlocks) {
     db_insert_blocks.run(block.name, block.lvl);
   }
+  db_insert_blocks.finalize();
 
-  const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width) VALUES (?, ?, ?, ?)");
+  const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)");
   for (const grid of initialGrid) {
     db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal);
   }
+  db_insert_grid.finalize();
+
   console.log("DB is ready!")
-
 })
-
-
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
-  
+
 app.get('/getBlocks', (req, res) => {
   const currentLevel = Number(req.query.currentLevel);
 
@@ -75,6 +75,27 @@ app.get('/getBlocks', (req, res) => {
         res.json(rows);
       }
   );
+});
+
+app.get('/getGrid', (req, res) =>{
+  const currentlvl = Number(req.query.currentLevel)
+
+  if(Number.isNaN(currentlvl)){
+    res.status(400).json({error: "level konnte nicht gefunden werden"});
+  }
+
+  db.all(
+      'SELECT * FROM grid WHERE lvl == ?',
+      [currentlvl],
+      (err, rows) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: 'Databasefailure' });
+        }
+        res.json(rows);
+      }
+  );
+})
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
