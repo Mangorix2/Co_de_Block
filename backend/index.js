@@ -1,6 +1,5 @@
 const sqlite3 = require('sqlite3')
 const express = require('express');
-const { rateLimit } = require('express-rate-limit');
 
 const app = express()
 app.use(express.json());
