@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3')
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 
 const app = express()
 app.use(express.json());
@@ -94,9 +95,17 @@ function validateCurrentlvl(value) {
     return true
 }
 
+const dbReadRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: {error: 'Zu viele Anfragen. Bitte später erneut versuchen.'}
+});
+
 // Endpoint to get blocks by lvl
 // body: currentLevel
-app.get('/getBlocks', (req, res) => {
+app.get('/getBlocks', dbReadRateLimiter, (req, res) => {
     const currentLevel = Number(req.query.currentLevel);
 
     if (!validateCurrentlvl(currentLevel)) {
@@ -116,7 +125,7 @@ app.get('/getBlocks', (req, res) => {
     );
 });
 
-app.get('/getGrid', (req, res) => {
+app.get('/getGrid', dbReadRateLimiter, (req, res) => {
     const currentlvl = Number(req.query.currentLevel)
 
     if (!validateCurrentlvl(currentlvl)) {
