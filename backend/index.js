@@ -1,6 +1,9 @@
 const sqlite3 = require('sqlite3')
 const express = require('express');
+
 const app = express()
+app.use(express.json());
+
 const port = 3000
 const db = new sqlite3.Database('block.db', (err) => {
     if (err) {
@@ -8,7 +11,9 @@ const db = new sqlite3.Database('block.db', (err) => {
     }
 })
 
-// DB
+// DB Stuff
+
+// Initial Data for DB
 const initialBlocks = [
     {name: "forward", lvl: 1},
     {name: "backward", lvl: 1},
@@ -31,6 +36,7 @@ function logError(err) {
     }
 }
 
+// Creation of Tables
 db.serialize(() => {
     db.run("DROP TABLE IF EXISTS blocks", logError)
     db.run("DROP TABLE IF EXISTS grid", logError)
@@ -52,12 +58,14 @@ db.serialize(() => {
             goal TEXT NOT NULL
         )`, logError)
 
+    // Datainsertion of Blocks
     const db_insert_blocks = db.prepare("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)");
     for (const block of initialBlocks) {
         db_insert_blocks.run(block.name, block.lvl, logError);
     }
     db_insert_blocks.finalize();
 
+    // Datainsertion of Grid
     const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)");
     for (const grid of initialGrid) {
         db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal, logError);
@@ -67,6 +75,10 @@ db.serialize(() => {
     console.log("DB is ready!")
 })
 
+// Endpoint for testing if the backend is running
+app.get('/health', (req, res) => {
+    res.send('HEALTHY: Backend running on Port: ' + port)
+})
 
 // TEST
 app.get('/', (req, res) => {
@@ -82,7 +94,8 @@ function validateCurrentlvl(value) {
     return true
 }
 
-// getblocks
+// Endpoint to get blocks by lvl
+// body: currentLevel
 app.get('/getBlocks', (req, res) => {
     const currentLevel = Number(req.query.currentLevel);
 
@@ -126,6 +139,56 @@ app.get('/getGrid', (req, res) => {
     );
 })
 
+// codeExec
+// body: JSON with all blocks
+// Bespiel body
+// {"blocks": [
+//     {
+//      "type": "repeat",
+//      "times": 2,
+//      "body": [
+//        { "type": "move_forward", "steps": 10 },
+//        { "type": "turn", "degrees": 90 }
+//        .....
+app.post('/codeExec', (req, res) => {
+    const data = req.body;
+    const instructions = createInstructions(data.blocks);
+
+    res.status(200).json({
+        instructions: instructions
+    });
+});
+
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
+    console.log(`Backend is listening on port ${port}`)
 })
+
+// Helper function for /codeExec
+// creates a list with the commands with all the blocks
+// argument block list => see /codeExec
+function createInstructions(blocks) {
+    let list = [];
+
+    blocks.forEach((block) => {
+        switch (block.type) {
+            case 'move_forward':
+                list.push(`move_forward(${block.steps})`);
+                break;
+
+            case 'turn':
+                list.push(`turn(${block.degrees})`);
+                break;
+
+            case 'repeat':
+                const times = block.times || 1;
+                const innerBlocks = block.body;
+
+                for (let i = 0; i < times; i++) {
+                    const innerBlock = createInstructions(innerBlocks);
+                    list = list.concat(innerBlock);
+                }
+                break;
+        }
+    })
+    return list
+}
