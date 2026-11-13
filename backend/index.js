@@ -23,17 +23,18 @@ const initialGrid = [
   { lvl: 3, height: 8, width: 8, goal: "6x8" },
   { lvl: 4, height: 10, width: 10, goal: "10x9" },
   { lvl: 5, height: 10, width: 10, goal: "7x8" },
-
 ];
 
 // Creation of Tables
 db.serialize(() => {
   db.run("DROP TABLE IF EXISTS blocks")
+  db.run("DROP TABLE IF EXISTS grid")
+
   db.run(`
     CREATE TABLE IF NOT EXISTS blocks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      block TEXT NOT NULL,
-      unlocked_at_lvl INTEGER
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        block TEXT NOT NULL,
+                                        unlocked_at_lvl INTEGER
     )`)
   db.run(`
     CREATE TABLE IF NOT EXISTS grid (
@@ -49,14 +50,16 @@ db.serialize(() => {
   for (const block of initialBlocks) {
     db_insert_blocks.run(block.name, block.lvl);
   }
+  db_insert_blocks.finalize();
 
 // Datainsertion of Grid
   const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)");
   for (const grid of initialGrid) {
     db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal);
   }
-  console.log("DB is ready!")
+  db_insert_grid.finalize();
 
+  console.log("DB is ready!")
 })
 
 
@@ -85,7 +88,14 @@ app.get('/getBlocks', (req, res) => {
       res.json(rows);
     }
   );
-})
+});
+
+app.get('/getGrid', (req, res) =>{
+  const currentlvl = Number(req.query.currentLevel)
+
+  if(Number.isNaN(currentlvl)){
+    res.status(400).json({error: "level konnte nicht gefunden werden"});
+  }
 
 // codeExec
 // body: JSON with all blocks
