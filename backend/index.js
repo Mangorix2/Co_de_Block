@@ -7,7 +7,9 @@ app.use(express.json());
 const port = 3000
 const db = new sqlite3.Database('block.db')
 
-// DB
+// DB Stuff
+
+// Initial Data for DB
 const initialBlocks = [
   { name: "forward", lvl: 1 },
   { name: "backward", lvl: 1 },
@@ -24,6 +26,7 @@ const initialGrid = [
 
 ];
 
+// Creation of Tables
 db.serialize(() => {
   db.run("DROP TABLE IF EXISTS blocks")
   db.run(`
@@ -41,11 +44,13 @@ db.serialize(() => {
       goal TEXT NOT NULL
     )`)
 
+// Datainsertion of Blocks
   const db_insert_blocks = db.prepare("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)");
   for (const block of initialBlocks) {
     db_insert_blocks.run(block.name, block.lvl);
   }
 
+// Datainsertion of Grid
   const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)");
   for (const grid of initialGrid) {
     db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal);
@@ -55,12 +60,12 @@ db.serialize(() => {
 })
 
 
-// TEST
-app.get('/', (req, res) => {
-  res.send('Hello World!')
+// Endpoint for testing if the backend is running
+app.get('/health', (req, res) => {
+  res.send('HEALTHY: Backend running on Port: ' + port)
 })
 
-// getblocks by lvl
+// Endpoint to get blocks by lvl
 // body: currentLevel
 app.get('/getBlocks', (req, res) => {
   const currentLevel = Number(req.query.currentLevel);
@@ -84,6 +89,7 @@ app.get('/getBlocks', (req, res) => {
 
 // codeExec
 // body: JSON with all blocks
+// Bespiel body 
 //{"blocks": [
 //     {
 //      "type": "repeat",
@@ -104,7 +110,7 @@ app.post('/codeExec', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  console.log(`Backend is listening on port ${port}`)
 })
 
 // Helper function for /codeExec 
