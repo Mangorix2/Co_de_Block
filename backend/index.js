@@ -1,34 +1,14 @@
-const sqlite3 = require('sqlite3');
+const sqlite3 = require('sqlite3')
 const express = require('express');
-
-const app = express();
-const port = 3000;
-
+const app = express()
+const port = 3000
 const db = new sqlite3.Database('block.db', (err) => {
     if (err) {
-        console.error('Could not open database:', err.message);
-        process.exit(1);
+        console.error('DB konnte nicht geöffnet werden:', err.message);
     }
-});
+})
 
-// ---------- DB helpers (Promise-Wrapper) ----------
-const run = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-        db.run(sql, params, function (err) {
-            if (err) return reject(err);
-            resolve(this);
-        });
-    });
-
-const all = (sql, params = []) =>
-    new Promise((resolve, reject) => {
-        db.all(sql, params, (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows);
-        });
-    });
-
-// ---------- DB Setup ----------
+// DB
 const initialBlocks = [
     {name: "forward", lvl: 1},
     {name: "backward", lvl: 1},
@@ -44,139 +24,108 @@ const initialGrid = [
     {lvl: 5, height: 10, width: 10, goal: "7x8"},
 ];
 
-async function initDb() {
-    await run("DROP TABLE IF EXISTS blocks");
-    await run("DROP TABLE IF EXISTS grid");
+// kleine Hilfsfunktion: loggt Fehler bei db.run
+function logError(err) {
+    if (err) {
+        console.error('DB Fehler:', err.message);
+    }
+}
 
-    await run(`
-        CREATE TABLE blocks (
+db.serialize(() => {
+    db.run("DROP TABLE IF EXISTS blocks", logError)
+    db.run("DROP TABLE IF EXISTS grid", logError)
+
+    db.run(`
+        CREATE TABLE IF NOT EXISTS blocks
+        (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             block TEXT NOT NULL,
             unlocked_at_lvl INTEGER
-        )`);
-    await run(`
-        CREATE TABLE grid (
+        )`, logError)
+    db.run(`
+        CREATE TABLE IF NOT EXISTS grid
+        (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lvl INTEGER NOT NULL,
             height INTEGER NOT NULL,
             width INTEGER NOT NULL,
             goal TEXT NOT NULL
-        )`);
+        )`, logError)
 
-    await run("BEGIN TRANSACTION");
-    try {
-        for (const b of initialBlocks) {
-            await run("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)", [b.name, b.lvl]);
-        }
-        for (const g of initialGrid) {
-            await run(
-                "INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)",
-                [g.lvl, g.height, g.width, g.goal]
-            );
-        }
-        await run("COMMIT");
-    } catch (err) {
-        await run("ROLLBACK").catch(() => {});
-        throw err;
+    const db_insert_blocks = db.prepare("INSERT INTO blocks (block, unlocked_at_lvl) VALUES (?, ?)");
+    for (const block of initialBlocks) {
+        db_insert_blocks.run(block.name, block.lvl, logError);
     }
-}
+    db_insert_blocks.finalize();
 
-// ---------- Validation ----------
-// Gibt das Level als Zahl zurück oder null, wenn ungültig
-function parseLevel(value) {
-    if (value === undefined || value === null || String(value).trim() === '') {
-        return null;
+    const db_insert_grid = db.prepare("INSERT INTO grid (lvl, height, width, goal) VALUES (?, ?, ?, ?)");
+    for (const grid of initialGrid) {
+        db_insert_grid.run(grid.lvl, grid.height, grid.width, grid.goal, logError);
     }
-    const level = Number(value);
-    if (!Number.isInteger(level) || level <= 0) {
-        return null;
-    }
-    return level;
-}
+    db_insert_grid.finalize();
 
-// Middleware: validiert ?currentLevel und hängt es an req
-function requireLevel(req, res, next) {
-    const level = parseLevel(req.query.currentLevel);
-    if (level === null) {
-        return res.status(400).json({
-            error: "Invalid or missing 'currentLevel'. It must be a positive integer."
-        });
-    }
-    req.level = level;
-    next();
-}
+    console.log("DB is ready!")
+})
 
-// Wrapper, damit async-Fehler im Error-Handler landen
-const asyncHandler = (fn) => (req, res, next) =>
-    Promise.resolve(fn(req, res, next)).catch(next);
 
-// ---------- Routes ----------
+// TEST
 app.get('/', (req, res) => {
-    res.send('Hello World!');
-});
+    res.send('Hello World!')
+})
 
-app.get('/getBlocks', requireLevel, asyncHandler(async (req, res) => {
-    const rows = await all(
-        'SELECT * FROM blocks WHERE unlocked_at_lvl <= ?',
-        [req.level]
-    );
-    res.json(rows);
-}));
+function validateCurrentlvl(value) {
+    const level = Number(value);
 
-app.get('/getGrid', requireLevel, asyncHandler(async (req, res) => {
-    const rows = await all('SELECT * FROM grid WHERE lvl = ?', [req.level]);
-
-    if (rows.length === 0) {
-        return res.status(404).json({error: `No grid found for level ${req.level}`});
+    if (level <= 0 || !Number.isInteger(level)) {
+        return false
     }
-    res.json(rows);
-}));
-
-// ---------- 404 & Error Handler ----------
-app.use((req, res) => {
-    res.status(404).json({error: `Route ${req.method} ${req.path} not found`});
-});
-
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-    console.error(err);
-    if (res.headersSent) return next(err);
-    res.status(500).json({error: 'Internal server error'});
-});
-
-// ---------- Start ----------
-let server;
-
-initDb()
-    .then(() => {
-        console.log('DB is ready!');
-        server = app.listen(port, () => {
-            console.log(`Example app listening on port ${port}`);
-        });
-        server.on('error', (err) => {
-            console.error(
-                err.code === 'EADDRINUSE'
-                    ? `Port ${port} is already in use`
-                    : `Server error: ${err.message}`
-            );
-            process.exit(1);
-        });
-    })
-    .catch((err) => {
-        console.error('DB initialization failed:', err);
-        process.exit(1);
-    });
-
-// ---------- Graceful Shutdown ----------
-function shutdown(signal) {
-    console.log(`${signal} received, shutting down...`);
-    const closeDb = () =>
-        db.close((err) => {
-            if (err) console.error('Error closing DB:', err.message);
-            process.exit(err ? 1 : 0);
-        });
-    server ? server.close(closeDb) : closeDb();
+    return true
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+// getblocks
+app.get('/getBlocks', (req, res) => {
+    const currentLevel = Number(req.query.currentLevel);
+
+    if (!validateCurrentlvl(currentLevel)) {
+        return res.status(400).json({error: 'currentLevel muss eine positive ganze Zahl sein'});
+    }
+
+    db.all(
+        'SELECT * FROM blocks WHERE unlocked_at_lvl <= ?',
+        [currentLevel],
+        (err, rows) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({error: 'Database failure'});
+            }
+            res.json(rows);
+        }
+    );
+});
+
+app.get('/getGrid', (req, res) => {
+    const currentlvl = Number(req.query.currentLevel)
+
+    if (!validateCurrentlvl(currentlvl)) {
+        return res.status(400).json({error: 'currentLevel muss eine positive ganze Zahl sein'});
+    }
+
+    db.all(
+        'SELECT * FROM grid WHERE lvl = ?',
+        [currentlvl],
+        (err, rows) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({error: 'Database failure'});
+            }
+            if (rows.length === 0) {
+                return res.status(404).json({error: 'Kein Grid für dieses Level gefunden'});
+            }
+            res.json(rows);
+        }
+    );
+})
+
+app.listen(port, () => {
+    console.log(`Example app listening on port ${port}`)
+})
